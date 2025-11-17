@@ -172,7 +172,7 @@
     <script type="module">
         // Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
+        // import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js"; // Analytics import removed as it's not in the new config snippet
         // [MODIFIED] Google 로그인 및 로그아웃 관련 함수 추가
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, setLogLevel, collection, addDoc, onSnapshot, doc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
@@ -210,17 +210,16 @@
                     const firebaseConfig = typeof __firebase_config !== 'undefined' 
                         ? JSON.parse(__firebase_config)
                         : { // 사용자가 제공한 구성을 비상용으로 사용 (단, 캔버스 환경에서는 __firebase_config가 우선됨)
-                            apiKey: "AIzaSyCLZhWWBvaKTz45CW_s1iJnBPLTCwxRHCE",
-                            authDomain: "testy-c.firebaseapp.com",
-                            projectId: "testy-c",
-                            storageBucket: "testy-c.firebasestorage.app",
-                            messagingSenderId: "312428887371",
-                            appId: "1:312428887371:web:2952804a06f2c9df127cce",
-                            measurementId: "G-4FJRKJJWDT"
+                            apiKey: "AIzaSyATRnh8aF1laRpDKKT5NRMZ8ufKLo-DRkY",
+                            authDomain: "to-day-list-dac46.firebaseapp.com",
+                            projectId: "to-day-list-dac46",
+                            storageBucket: "to-day-list-dac46.firebasestorage.app",
+                            messagingSenderId: "230828350048",
+                            appId: "1:230828350048:web:35267582369719cd45c105"
                           };
 
                     const app = initializeApp(firebaseConfig);
-                    const analytics = getAnalytics(app); // Analytics 추가
+                    // const analytics = getAnalytics(app); // Analytics call removed
                     db = getFirestore(app);
                     auth = getAuth(app);
                     
