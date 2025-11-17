@@ -16,15 +16,15 @@
             font-family: 'Inter', sans-serif;
         }
         
-        /* 24시간을 나타내는 100px 높이의 24개 행을 생성합니다. */
+        /* [MODIFIED] 24시간을 나타내는 60px 높이의 24개 행을 생성합니다. */
         .timeline-grid {
             display: grid;
-            grid-template-rows: repeat(24, 100px);
+            grid-template-rows: repeat(24, 60px);
         }
 
-        /* 시간 레이블 셀 */
+        /* [MODIFIED] 시간 레이블 셀 */
         .time-label {
-            height: 100px; /* 1시간 = 100px */
+            height: 60px; /* 1시간 = 60px */
             position: relative;
         }
 
@@ -38,9 +38,9 @@
             color: #6b7280; /* gray-500 */
         }
         
-        /* 일정 그리드 셀 */
+        /* [MODIFIED] 일정 그리드 셀 */
         .schedule-cell {
-            height: 100px; /* 1시간 = 100px */
+            height: 60px; /* 1시간 = 60px */
             border-bottom: 1px dashed #e5e7eb; /* gray-200 */
         }
 
@@ -198,8 +198,8 @@
             let db, auth, userId, appId, schedulesCollectionRef;
             let schedulesListener = null; // [NEW] 실시간 리스너 구독 중지 함수를 저장할 변수
 
-            // 1시간을 100px로 고정합니다.
-            const HOUR_HEIGHT = 100; // px
+            // [MODIFIED] 1시간을 60px로 고정합니다.
+            const HOUR_HEIGHT = 60; // px
             
             // --- Firebase Initialization and Auth ---
             function initializeFirebase() {
