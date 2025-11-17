@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>일간 시간표</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter 폰트 (Tailwind 기본 폰트) -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <style>
+        /* 사용자 정의 스타일 */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* 24시간을 나타내는 100px 높이의 24개 행을 생성합니다. */
+        .timeline-grid {
+            display: grid;
+            grid-template-rows: repeat(24, 100px);
+        }
+
+        /* 시간 레이블 셀 */
+        .time-label {
+            height: 100px; /* 1시간 = 100px */
+            position: relative;
+        }
+
+        /* 시간 텍스트 (e.g., 01:00) */
+        .time-label span {
+            position: relative;
+            top: -0.75rem; /* 텍스트를 경계선 위로 살짝 이동 */
+            background-color: white;
+            padding: 0 0.5rem;
+            font-size: 0.75rem; /* 12px */
+            color: #6b7280; /* gray-500 */
+        }
+        
+        /* 일정 그리드 셀 */
+        .schedule-cell {
+            height: 100px; /* 1시간 = 100px */
+            border-bottom: 1px dashed #e5e7eb; /* gray-200 */
+        }
+
+        /* 마지막 셀의 하단 테두리 제거 */
+        .schedule-cell:last-child {
+            border-bottom: none;
+        }
+
+        /* 현재 시간 표시줄 */
+        #currentTimeIndicator {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background-color: red;
+            z-index: 20;
+            /* JS가 top 속성을 업데이트합니다. */
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <!-- [NEW] 로그인 화면 -->
+    <div id="loginScreen" class="fixed inset-0 bg-gray-100 flex items-center justify-center z-50">
+        <div class="text-center p-8 bg-white rounded-lg shadow-xl">
+            <h1 class="text-3xl font-bold text-gray-800 mb-6">일간 시간표</h1>
+            <p class="text-gray-600 mb-8">시작하려면 Google 계정으로 로그인하세요.</p>
+            <button id="googleLoginButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-full shadow-lg transition duration-300 ease-in-out flex items-center mx-auto">
+                <svg class="w-5 h-5 mr-3" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48px" height="48px"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C39.971,36.216,44,30.606,44,24C44,22.659,43.862,21.35,43.611,20.083z"/></svg>
+                Google 계정으로 로그인
+            </button>
+        </div>
+    </div>
+
+    <!-- [MODIFIED] 메인 앱 컨테이너, 기본적으로 숨김 -->
+    <div class="container mx-auto p-4 max-w-4xl hidden">
+        <!-- 헤더: 제목 및 일정 추가 버튼 -->
+        <header class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">일간 시간표</h1>
+            <button id="addEventButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-lg transition duration-300 ease-in-out flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                일정 추가
+            </button>
+        </header>
+
+        <!-- 시간표 컨테이너 (스크롤 가능) -->
+        <div class="bg-white rounded-lg shadow-xl overflow-hidden">
+            <div id="timetableWrapper" class="h-[70vh] overflow-y-auto">
+                <div class="grid grid-cols-[60px_1fr]">
+                    <!-- 세로축: 시간 레이블 -->
+                    <div id="timeColumn" class="timeline-grid border-r border-gray-200">
+                        <!-- JS로 시간 레이블 생성 -->
+                    </div>
+
+                    <!-- 가로축: 일정 영역 -->
+                    <div id="scheduleArea" class="timeline-grid relative">
+                        <!-- JS로 그리드 셀 생성 -->
+                        
+                        <!-- 현재 시간 표시줄 -->
+                        <div id="currentTimeIndicator">
+                            <!-- [NEW] 현재 시간 텍스트 -->
+                            <span id="currentTimeText" class="absolute -top-3 bg-red-600 text-white text-xs font-bold px-2 py-0.5 rounded-r-md rounded-l-sm shadow-lg" style="left: -60px;">
+                                <!-- JS로 시간 업데이트 -->
+                            </span>
+                        </div>
+                        
+                        <!-- 일정이 추가될 컨테이너 -->
+                        <div id="eventContainer" class="absolute inset-0">
+                            <!-- JS로 일정 블록 생성 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 일정 추가 모달 -->
+    <!-- [FIX] 누락되었던 모달의
+         id="eventModal"을 포함한 래퍼 div를 복원합니다. -->
+    <div id="eventModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white rounded-lg shadow-2xl p-8 w-full max-w-md">
+            <h2 class="text-2xl font-bold mb-6">새 일정 추가</h2>
+            <form id="eventForm">
+                <div class="mb-4">
+                    <label for="startTime" class="block text-sm font-medium text-gray-700 mb-1">시작 시간</label>
+                    <input type="time" id="startTime" name="startTime" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div class="mb-4">
+                    <label for="endTime" class="block text-sm font-medium text-gray-700 mb-1">종료 시간</label>
+                    <input type="time" id="endTime" name="endTime" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div class="mb-4">
+                    <label for="task" class="block text-sm font-medium text-gray-700 mb-1">할 일</label>
+                    <input type="text" id="task" name="task" placeholder="예: 프로젝트 회의" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500" required>
+                </div>
+                <div class="mb-6">
+                    <label for="category" class="block text-sm font-medium text-gray-700 mb-1">분류</label>
+                    <select id="category" name="category" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                        <option value="study">공부</option>
+                        <option value="leisure">여가</option>
+                        <option value="work">업무</option>
+                        <option value="etc">기타</option>
+                    </select>
+                </div>
+                <div class="flex justify-end space-x-4">
+                    <button type="button" id="cancelButton" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-medium py-2 px-4 rounded-md transition duration-300">
+                        취소
+                    </button>
+                    <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-300">
+                        저장
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 기존 <script> 태그를 <script type="module">으로 변경하고 Firebase 로직 추가 -->
+    <script type="module">
+        // Firebase SDKs
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
+        // [MODIFIED] Google 로그인 관련 함수 추가
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, setLogLevel, collection, addDoc, onSnapshot, doc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const timeColumn = document.getElementById('timeColumn');
+            const scheduleArea = document.getElementById('scheduleArea');
+            const eventContainer = document.getElementById('eventContainer');
+            const currentTimeIndicator = document.getElementById('currentTimeIndicator');
+            
+            const addEventButton = document.getElementById('addEventButton');
+            const eventModal = document.getElementById('eventModal');
+            const eventForm = document.getElementById('eventForm');
+            const cancelButton = document.getElementById('cancelButton');
+            
+            // [NEW] 로그인 UI 요소
+            const loginScreen = document.getElementById('loginScreen');
+            const googleLoginButton = document.getElementById('googleLoginButton');
+            const appContainer = document.querySelector('.container');
+
+            // --- Firebase Global Variables ---
+            let db, auth, userId, appId, schedulesCollectionRef;
+
+            // 1시간을 100px로 고정합니다.
+            const HOUR_HEIGHT = 100; // px
+            // const scheduleData = []; // 로컬 배열 대신 Firestore 사용
+
+            // --- Firebase Initialization and Auth ---
+            function initializeFirebase() {
+                try {
+                    // 캔버스 환경 변수 사용
+                    appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    
+                    const firebaseConfig = typeof __firebase_config !== 'undefined' 
+                        ? JSON.parse(__firebase_config)
+                        : { // 사용자가 제공한 구성을 비상용으로 사용 (단, 캔버스 환경에서는 __firebase_config가 우선됨)
+                            apiKey: "AIzaSyCLZhWWBvaKTz45CW_s1iJnBPLTCwxRHCE",
+                            authDomain: "testy-c.firebaseapp.com",
+                            projectId: "testy-c",
+                            storageBucket: "testy-c.firebasestorage.app",
+                            messagingSenderId: "312428887371",
+                            appId: "1:312428887371:web:2952804a06f2c9df127cce",
+                            measurementId: "G-4FJRKJJWDT"
+                          };
+
+                    const app = initializeApp(firebaseConfig);
+                    const analytics = getAnalytics(app); // Analytics 추가
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    
+                    setLogLevel('debug'); // Firestore 디버그 로그 활성화
+
+                    // [MODIFIED] 인증 상태 리스너
+                    onAuthStateChanged(auth, async (user) => {
+                        if (user) {
+                            // 사용자가 로그인됨
+                            userId = user.uid;
+                            // 사용자별 개인 데이터 경로 설정
+                            schedulesCollectionRef = collection(db, 'artifacts', appId, 'users', userId, 'schedules');
+                            
+                            console.log("Firebase Auth ready. User ID:", userId, "App ID:", appId);
+                            
+                            // [NEW] UI 전환: 로그인 화면 숨기고 앱 화면 표시
+                            loginScreen.classList.add('hidden');
+                            appContainer.classList.remove('hidden');
+
+                            onAuthReady(); // 인증이 준비되면 메인 앱 로직 실행
+                            
+                        } else {
+                            // 사용자가 로그인되지 않음
+                            console.log("No user signed in. Showing login screen.");
+                            
+                            // [NEW] UI 전환: 로그인 화면 표시하고 앱 화면 숨김
+                            loginScreen.classList.remove('hidden');
+                            appContainer.classList.add('hidden');
+                            
+                            // [REMOVED] 자동 익명/커스텀 토큰 로그인 로직 제거
+                        }
+                    });
+
+                } catch (error) {
+                    console.error("Firebase Initialization Error:", error);
+                }
+            }
+
+            // 2. 현재 시간 표시줄 업데이트 (MODIFIED - 텍스트 추가)
+            function updateCurrentTimeIndicator() {
+                const now = new Date();
+                const hours = now.getHours();
+                const minutes = now.getMinutes();
+                
+                // 현재 시간을 픽셀 위치로 변환
+                const topPosition = (hours * HOUR_HEIGHT) + (minutes / 60 * HOUR_HEIGHT);
+                
+                currentTimeIndicator.style.top = `${topPosition}px`;
+
+                // [NEW] 현재 시간 텍스트 업데이트
+                const currentTimeText = document.getElementById('currentTimeText');
+                if (currentTimeText) {
+                    currentTimeText.textContent = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+                }
+            }
+
+            // 3. 모달 열기/닫기 (변경 없음)
+            function openModal() {
+                if (eventModal) {
+                    eventModal.classList.remove('hidden');
+                }
+            }
+
+            function closeModal() {
+                if (eventModal) {
+                    eventModal.classList.add('hidden');
+                }
+                if (eventForm) {
+                    eventForm.reset(); // 폼 초기화
+                }
+            }
+
+            // 4. 일정 저장 (MODIFIED - Now async and writes to Firestore)
+            async function handleFormSubmit(e) {
+                e.preventDefault();
+                
+                const startTime = eventForm.startTime.value;
+                const endTime = eventForm.endTime.value;
+                const task = eventForm.task.value;
+                const category = eventForm.category.value;
+
+                if (startTime >= endTime) {
+                    console.error("종료 시간은 시작 시간보다 늦어야 합니다.");
+                    // (참고: 실제 앱에서는 이 에러를 사용자에게 모달로 보여주는 것이 좋습니다.)
+                    return; 
+                }
+
+                const newEvent = {
+                    start: startTime,
+                    end: endTime,
+                    task: task,
+                    category: category
+                    // Firestore가 자동으로 ID를 생성합니다.
+                };
+
+                // scheduleData.push(newEvent); // <-- 로컬 배열 대신 Firestore 사용
+                // renderEvents(); // <-- onSnapshot이 자동으로 처리
+                
+                try {
+                    await addDoc(schedulesCollectionRef, newEvent);
+                    console.log("Event added to Firestore");
+                } catch (error) {
+                    console.error("Error adding event:", error);
+                }
+
+                closeModal();
+            }
+
+            // 5. Firestore 리스너 설정 (NEW FUNCTION)
+            function setupRealtimeListener() {
+                if (!schedulesCollectionRef) {
+                    console.error("Firestore collection reference is not initialized.");
+                    return;
+                }
+                
+                // (참고: orderBy를 사용하려면 Firestore에서 인덱스를 생성해야 할 수 있으므로,
+                // 여기서는 인덱스가 필요 없는 기본 쿼리만 사용합니다.)
+                const q = query(schedulesCollectionRef);
+
+                onSnapshot(q, (snapshot) => {
+                    const scheduleData = [];
+                    snapshot.forEach((doc) => {
+                        scheduleData.push({ 
+                            ...doc.data(), 
+                            firestoreId: doc.id  // Firestore 문서 ID를 저장 (삭제 시 필요)
+                        });
+                    });
+                    // 데이터를 가져온 후 렌더링
+                    renderEvents(scheduleData);
+                }, (error) => {
+                    console.error("Error with Firestore snapshot listener:", error);
+                });
+            }
+
+            // 5. 모든 일정 다시 그리기 (MODIFIED - Renamed from #5, now accepts data)
+            function renderEvents(scheduleData) {
+                if (!eventContainer) return;
+                eventContainer.innerHTML = ''; // 기존 일정 초기화
+                
+                if (!scheduleData) return;
+
+                scheduleData.forEach(event => {
+                    const eventBlock = createEventBlock(event);
+                    eventContainer.appendChild(eventBlock);
+                });
+            }
+
+            // 6. 일정 블록 DOM 요소 생성 (MODIFIED - Added delete button)
+            function createEventBlock(event) {
+                const [startHour, startMinute] = event.start.split(':').map(Number);
+                const [endHour, endMinute] = event.end.split(':').map(Number);
+
+                // 분 단위로 변환
+                const startTimeInMinutes = startHour * 60 + startMinute;
+                const endTimeInMinutes = endHour * 60 + endMinute;
+                const durationInMinutes = endTimeInMinutes - startTimeInMinutes;
+
+                // 픽셀 위치 및 높이 계산
+                const top = (startTimeInMinutes / 60) * HOUR_HEIGHT;
+                const height = (durationInMinutes / 60) * HOUR_HEIGHT;
+
+                // 카테고리별 색상
+                const categoryColors = {
+                    study: 'bg-blue-100 border-blue-300 text-blue-800',
+                    leisure: 'bg-green-100 border-green-300 text-green-800',
+                    work: 'bg-purple-100 border-purple-300 text-purple-800',
+                    etc: 'bg-gray-100 border-gray-300 text-gray-800'
+                };
+                
+                const colorClasses = categoryColors[event.category] || categoryColors['etc'];
+
+                // DOM 요소 생성
+                const eventDiv = document.createElement('div');
+                eventDiv.className = `absolute left-2 right-2 p-2 rounded-lg border shadow-sm overflow-hidden ${colorClasses}`;
+                eventDiv.style.top = `${top}px`;
+                eventDiv.style.height = `${Math.max(height, 30)}px`; // 겹침 방지를 위한 최소 높이
+                
+                eventDiv.innerHTML = `
+                    <p class="font-semibold text-sm truncate">${event.task}</p>
+                    <p class="text-xs">${event.start} - ${event.end}</p>
+                    <button class="delete-event-btn absolute top-1 right-1 w-5 h-5 bg-black/20 hover:bg-red-600 hover:text-white rounded-full flex items-center justify-center text-xs font-bold text-white transition-all opacity-50 hover:opacity-100 z-10">
+                        &times;
+                    </button>
+                `;
+
+                // 삭제 버튼 이벤트 리스너 추가
+                const deleteButton = eventDiv.querySelector('.delete-event-btn');
+                deleteButton.addEventListener('click', async (e) => {
+                    e.stopPropagation(); // 이벤트 버블링 방지
+                    
+                    // confirm()은 캔버스 환경에서 작동하지 않으므로 즉시 삭제합니다.
+                    try {
+                        const eventDocRef = doc(db, 'artifacts', appId, 'users', userId, 'schedules', event.firestoreId);
+                        await deleteDoc(eventDocRef);
+                        console.log("Event deleted");
+                        // onSnapshot이 자동으로 UI를 업데이트합니다.
+                    } catch (error) {
+                        console.error("Error deleting event:", error);
+                    }
+                });
+
+
+                return eventDiv;
+            }
+
+            // 7. Firebase 초기화로 앱 시작
+            initializeFirebase();
+
+        });
+    </script>
+</body>
+</html>
