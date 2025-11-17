@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>일간 시간표</title>
+    <!-- [NEW] Favicon 추가 -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='%234A90E2' d='M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z'/><path fill='%23E84A5F' d='M7 10h2v2H7zM11 10h2v2h-2zM15 10h2v2h-2z'/></svg>">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Inter 폰트 (Tailwind 기본 폰트) -->
@@ -246,6 +248,17 @@
                 }
             }
 
+            // [NEW] Google 로그인 처리 함수 (누락되었던 부분)
+            async function handleGoogleLogin() {
+                const provider = new GoogleAuthProvider();
+                try {
+                    await signInWithPopup(auth, provider);
+                    // 로그인이 성공하면 onAuthStateChanged 리스너가 자동으로 감지하고 처리합니다.
+                } catch (error) {
+                    console.error("Google Sign-In Error:", error);
+                }
+            }
+
             // 2. 현재 시간 표시줄 업데이트 (MODIFIED - 텍스트 추가)
             function updateCurrentTimeIndicator() {
                 const now = new Date();
@@ -415,6 +428,13 @@
 
             // 7. Firebase 초기화로 앱 시작
             initializeFirebase();
+
+            // [NEW] Google 로그인 버튼에 이벤트 리스너 연결 (누락되었던 부분)
+            if (googleLoginButton) {
+                googleLoginButton.addEventListener('click', handleGoogleLogin);
+            } else {
+                console.error("googleLoginButton not found");
+            }
 
         });
     </script>
