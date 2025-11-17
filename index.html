@@ -79,12 +79,22 @@
         <!-- 헤더: 제목 및 일정 추가 버튼 -->
         <header class="flex justify-between items-center mb-6">
             <h1 class="text-3xl font-bold text-gray-800">일간 시간표</h1>
-            <button id="addEventButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-lg transition duration-300 ease-in-out flex items-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                일정 추가
-            </button>
+            <!-- [NEW] 버튼 그룹 래퍼 -->
+            <div class="flex items-center space-x-4">
+                <button id="addEventButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full shadow-lg transition duration-300 ease-in-out flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    일정 추가
+                </button>
+                <!-- [NEW] 로그아웃 버튼 -->
+                <button id="logoutButton" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-full shadow-lg transition duration-300 ease-in-out flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1m0-10V5m6 10a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    로그아웃
+                </button>
+            </div>
         </header>
 
         <!-- 시간표 컨테이너 (스크롤 가능) -->
@@ -163,8 +173,8 @@
         // Firebase SDKs
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics.js";
-        // [MODIFIED] Google 로그인 관련 함수 추가
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // [MODIFIED] Google 로그인 및 로그아웃 관련 함수 추가
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, setLogLevel, collection, addDoc, onSnapshot, doc, deleteDoc, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -178,18 +188,19 @@
             const eventForm = document.getElementById('eventForm');
             const cancelButton = document.getElementById('cancelButton');
             
-            // [NEW] 로그인 UI 요소
+            // [NEW] 로그인/로그아웃 UI 요소
             const loginScreen = document.getElementById('loginScreen');
             const googleLoginButton = document.getElementById('googleLoginButton');
+            const logoutButton = document.getElementById('logoutButton'); // [NEW]
             const appContainer = document.querySelector('.container');
 
             // --- Firebase Global Variables ---
             let db, auth, userId, appId, schedulesCollectionRef;
+            let schedulesListener = null; // [NEW] 실시간 리스너 구독 중지 함수를 저장할 변수
 
             // 1시간을 100px로 고정합니다.
             const HOUR_HEIGHT = 100; // px
-            // const scheduleData = []; // 로컬 배열 대신 Firestore 사용
-
+            
             // --- Firebase Initialization and Auth ---
             function initializeFirebase() {
                 try {
@@ -232,23 +243,32 @@
                             onAuthReady(); // 인증이 준비되면 메인 앱 로직 실행
                             
                         } else {
+                            // [FIXED] SyntaxError 수정:
                             // 사용자가 로그인되지 않음
                             console.log("No user signed in. Showing login screen.");
                             
-                            // [NEW] UI 전환: 로그인 화면 표시하고 앱 화면 숨김
+                            // UI 전환: 로그인 화면 표시하고 앱 화면 숨김
                             loginScreen.classList.remove('hidden');
                             appContainer.classList.add('hidden');
-                            
-                            // [REMOVED] 자동 익명/커스텀 토큰 로그인 로직 제거
-                        }
-                    });
 
+                            // 만약 실시간 리스너가 있다면, 로그아웃 시 중지합니다.
+                            if (schedulesListener) {
+                                schedulesListener(); // onSnapshot()이 반환하는 구독 중지 함수
+                                schedulesListener = null; // 참조 제거
+                            }
+                            // 화면에 남아있는 일정 지우기
+                            if (eventContainer) {
+                                eventContainer.innerHTML = '';
+                            }
+                        }
+                    }); 
+                    
                 } catch (error) {
                     console.error("Firebase Initialization Error:", error);
                 }
-            }
+            } // initializeFirebase 함수의 닫는 괄호
 
-            // [NEW] Google 로그인 처리 함수 (누락되었던 부분)
+            // [NEW] Google 로그인 처리 함수
             async function handleGoogleLogin() {
                 const provider = new GoogleAuthProvider();
                 try {
@@ -256,6 +276,18 @@
                     // 로그인이 성공하면 onAuthStateChanged 리스너가 자동으로 감지하고 처리합니다.
                 } catch (error) {
                     console.error("Google Sign-In Error:", error);
+                }
+            }
+
+            // [NEW] 로그아웃 처리 함수
+            async function handleLogout() {
+                try {
+                    await signOut(auth);
+                    // onAuthStateChanged가 자동으로 로그아웃을 감지하고
+                    // 로그인 화면을 표시할 것입니다.
+                    console.log("User logged out");
+                } catch (error) {
+                    console.error("Logout Error:", error);
                 }
             }
 
@@ -315,9 +347,6 @@
                     category: category
                     // Firestore가 자동으로 ID를 생성합니다.
                 };
-
-                // scheduleData.push(newEvent); // <-- 로컬 배열 대신 Firestore 사용
-                // renderEvents(); // <-- onSnapshot이 자동으로 처리
                 
                 try {
                     await addDoc(schedulesCollectionRef, newEvent);
@@ -336,11 +365,16 @@
                     return;
                 }
                 
-                // (참고: orderBy를 사용하려면 Firestore에서 인덱스를 생성해야 할 수 있으므로,
-                // 여기서는 인덱스가 필요 없는 기본 쿼리만 사용합니다.)
+                // [NEW] 기존 리스너가 있다면 중복 실행 방지를 위해 먼저 중지
+                if (schedulesListener) {
+                    schedulesListener();
+                    schedulesListener = null;
+                }
+
                 const q = query(schedulesCollectionRef);
 
-                onSnapshot(q, (snapshot) => {
+                // [MODIFIED] onSnapshot의 반환값(구독 중지 함수)을 변수에 저장
+                schedulesListener = onSnapshot(q, (snapshot) => {
                     const scheduleData = [];
                     snapshot.forEach((doc) => {
                         scheduleData.push({ 
@@ -429,11 +463,18 @@
             // 7. Firebase 초기화로 앱 시작
             initializeFirebase();
 
-            // [NEW] Google 로그인 버튼에 이벤트 리스너 연결 (누락되었던 부분)
+            // [NEW] Google 로그인 버튼에 이벤트 리스너 연결
             if (googleLoginButton) {
                 googleLoginButton.addEventListener('click', handleGoogleLogin);
             } else {
                 console.error("googleLoginButton not found");
+            }
+
+            // [NEW] 로그아웃 버튼에 이벤트 리스너 연결
+            if (logoutButton) {
+                logoutButton.addEventListener('click', handleLogout);
+            } else {
+                console.error("logoutButton not found");
             }
 
         });
